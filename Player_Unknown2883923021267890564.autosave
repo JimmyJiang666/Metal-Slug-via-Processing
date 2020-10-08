@@ -1,0 +1,625 @@
+import time
+path = os.getcwd()
+walk_list = [[107,30],[139,28],[168,32],[201,32],[235,28],[266,29],[297,32],[330,36],[366,31]]
+walk_list1 = [[407,39],[450,32],[490,27],[524,25],[559,22],[591,24],[623,24],[652,28],[689,27],[720,34],[759,37],[800,47]]
+walk_list2 = [[1070,27],[1032,28],[985,35],[928,41],[878,39],[834,36],[799,31],[767,29],[730,28],[698,29]]
+walk_list3 = [[1023,49],[965,47],[910,46],[855,50],[807,47],[756,44],[703,45],[658,41],[615,41],[570,38],[520,40],[472,38],[424,40],[380,37],[332,38],[281,42],[230,49],[179,43]]
+walk_list4 = [[960,33],[992,31],[1025,30],[1057,30],[1089,32]]
+walk_list5 = [[137,29],[173,30],[208,31],[240,27]]
+walk_list6 = [[2,33],[36,33],[71,32],[105,31],[136,32],[170,36],[210,31],[243,31]]
+walk_list7 = [[3,35],[45,33],[85,31],[120,30]]
+walk_list8 = [[157,31],[198,31],[238,31],[278,30]]
+walk_list9 = [[314,33],[357,35],[401,36],[444,37]]
+walk_list_s = [[926,29],[963,27],[997,25],[1030,24],[1061,21]]
+soldier_death=[[1,29],[39,68],[78,109],[119,153],[163,202],[213,255],[264,307],[317,365],[377,423],[434,482],[494,542],[553,600],[610,656],[667,714],[725,773]]
+player_death=[[709,740],[744,781],[783,825],[829,874],[876,921],[925,970],[975,1020],[1021,1067],[1070,1117],[1122,1169]]
+player_life=[[3,49],[55,100],[104,145],[149,191],[196,237],[240,277],[280,312],[317,349],[352,380],[385,415],[418,448],[449,478],[481,506],[512,537],[542,567],[569,595],[599,624],[627,650],[655,681]]
+platform=[[[685,840,108],[1191,1265,164],[1196,1450,63],[1282,1463,115],[1479,1553,164],[1484,1738,63],[1570,1751,115],[2248,2368,118],[2814,3195,101]],[[73,132,106],[198,254,106],[290,359,106],[414,479,106],[508,575,111],[621,689,111],[752,794,120],[866,908,120],[992,1022,105],[1100,1140,105],[3002,3566,87]],[[242,350,61],[548,656,61],[992,1106,68],[1238,1316,52],[1910,2018,92],[2540,2648,92],[2696,2768,64],[2924,3026,92]]]
+leg_list = [[256,277],[280,308],[311,342],[345,364],[366,382],[384,401],[404,425],[428,454],[457,489],[491,511],[512,528],[530,549]]
+mine=[[978,12],[991,13],[1006,13],[1019,20],[1040,17]]
+grenade=[[32,267,43,286],[89,249,101,268],[149,246,163,265],[219,240,234,259],[245,250,263,267],[267,263,284,277],[288,274,308,286],[306,289,325,300]]
+water = [[57,86],[87,120],[121,153],[154,190],[193,227],[228,260],[261,289],[291,320]]
+
+class Creature:
+    def __init__(self,x,y,r,g,img,w,h,F):
+        self.x=x
+        self.y=y
+        self.r=r
+        self.g=g
+        self.vx=0
+        self.vy=0
+        self.w=w
+        self.h=h
+        self.F=F
+        self.f=0
+        self.dir=1
+        self.img = loadImage(path+"/images/"+img)
+    
+    def gravity(self):
+        if self.y + self.r < self.g:
+            self.vy += 0.8
+            if self.y+self.r+self.vy > self.g:
+                self.vy = self.g-(self.y+self.r)
+        else:
+            self.vy = 0
+        #add platforms in three missions
+        for i in platform[g.mission-1]:
+            if self.x in range(i[0],i[1]) and self.y+self.r <= i[2]:
+                self.g = i[2]
+                break
+            else:
+                self.g = g.g
+        #add stairs in mission2
+        if g.mission==2:        
+            if self.x in range(1268,1346) and self.y <= -0.833333*self.x+1230-1:
+                self.g = -0.833333*self.x+1230
+                if self.y + self.r >= self.g:
+                    self.y = self.g-self.r
+                else:
+                    self.vy += 0.8
+                    self.y += self.vy
+            elif self.x in range(1346,1472) and self.y<=97.33378:
+                 self.g=97.33378+self.r
+    
+    def update(self):
+        self.gravity()
+        self.x += self.vx
+        self.y += self.vy
+    
+    def display(self):
+        self.update()
+        # 288*40 for walking
+        if self.dir > 0:
+            image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,self.w,self.h,int(self.f)*self.w,0,int(self.f+1)*self.w,self.h)
+        elif self.dir < 0:
+            image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,self.w,self.h,int(self.f+1)*self.w,0,int(self.f)*self.w,self.h)        
+
+class Player(Creature):
+    def __init__(self,x,y,r,g,img,w,h,F,life,jump=False):
+        Creature.__init__(self,x,y,r,g,img,w,h,F)
+        self.keyHandler={LEFT:False,RIGHT:False,UP:False,DOWN:False}
+        self.jump=jump
+        self.fire=[]
+        self.grenade = False
+        self.ofire = False
+        self.dead = False
+        self.life = life
+        self.liveF = 19
+        self.livef = 0
+        self.deadF = 10
+        self.deadf = 0   
+        self.water = False  
+        self.killCnt = 0
+        self.rampage = False
+        
+    def display(self):
+        if self.rampage:
+            image(g.two,self.x-self.w//2-g.x,self.y-self.h//2,56,30,695,2512,725,2456)
+            self.vx = 30
+            self.x += self.vx
+            if self.x >= g.w/2:
+                g.x += self.vx
+        else:
+            if self.water:
+                if self.f <= 5:
+                    self.f = (self.f+0.7)%self.F
+                    if self.dir > 0:
+                        image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,water[int(self.f)][1]-water[int(self.f)][0],38,water[int(self.f)][0],139,water[int(self.f)][1],177)
+                    else:
+                        image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,water[int(self.f)][1]-water[int(self.f)][0],38,water[int(self.f)][1],139,water[int(self.f)][0],177)
+                else:
+                    self.water=False
+            else:
+                self.update()
+                if not self.dead:
+                    if self.ofire == True:
+                        if self.dir > 0:
+                            if self.vx != 0:
+                                image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,52,23,53,57,105,80)
+                                image(g.two,self.x-self.w//2-g.x,self.y+1,leg_list[int(self.f)][1]-leg_list[int(self.f)][0],20,leg_list[int(self.f)][0],1533,leg_list[int(self.f)][1],1553)
+                            else:
+                                image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,52,38,53,57,105,95)                       
+                        else:
+                            if self.vx != 0:
+                                image(self.img,self.x-self.w//2-g.x-20,self.y-self.h//2,52,23,105,57,53,80)
+                                image(g.two,self.x-self.w//2-g.x+4,self.y+1,leg_list[int(self.f)][1]-leg_list[int(self.f)][0],20,leg_list[int(self.f)][1],1533,leg_list[int(self.f)][0],1553)
+                            else:
+                                image(self.img,self.x-self.w//2-g.x-20,self.y-self.h//2,52,38,105,57,53,95)
+                    
+                    elif self.grenade == True:
+                        if self.dir > 0:
+                            if self.vx != 0:
+                                image(self.img,self.x-self.w//2-g.x+1,self.y-self.h//2,self.w,23,48,260,80,286)
+                                image(g.two,self.x-self.w//2-g.x,self.y+1,leg_list[int(self.f)][1]-leg_list[int(self.f)][0],20,leg_list[int(self.f)][0],1533,leg_list[int(self.f)][1],1553)
+                            else:
+                                image(self.img,self.x-self.w//2-g.x+1,self.y-self.h//2,self.w,38,48,260,80,301)                       
+                        else:
+                            if self.vx != 0:
+                                image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,self.w,23,80,260,48,286)
+                                image(g.two,self.x-self.w//2-g.x+4,self.y+1,leg_list[int(self.f)][1]-leg_list[int(self.f)][0],20,leg_list[int(self.f)][1],1533,leg_list[int(self.f)][0],1553)
+                            else:
+                                image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,self.w,38,80,260,48,301)            
+                    
+                    elif self.vy != 0 and self.dir > 0:
+                        image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,self.w,self.h,186,190,215,self.h+190)
+                    elif self.vy != 0 and self.dir < 0:
+                        image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,self.w,self.h,215,190,186,self.h+190)
+                    elif self.dir > 0 and self.vy == 0:
+                        image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,walk_list[int(self.f)][1],self.h,walk_list[int(self.f)][0],0,walk_list[int(self.f)][0]+walk_list[int(self.f)][1],self.h)
+                    elif self.dir < 0 and self.vy == 0:
+                        image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,walk_list[int(8-self.f)][1],self.h,walk_list[int(8-self.f)][1]+walk_list[int(8-self.f)][0],0,walk_list[int(8-self.f)][0],self.h)
+                else:
+                    self.deadf = self.deadf+0.8
+                    if self.deadf <= 10:
+                        if self.dir < 0:
+                            image(g.two,self.x-self.w//2-g.x,self.y-self.h//2,player_death[int(self.deadf)][1]-player_death[int(self.deadf)][0],48,player_death[int(self.deadf)][1],3060,player_death[int(self.deadf)][0],3108)                    
+                        elif self.dir > 0:
+                            image(g.two,self.x-self.w//2-g.x,self.y-self.h//2,player_death[int(self.deadf)][1]-player_death[int(self.deadf)][0],48,player_death[int(self.deadf)][0],3060,player_death[int(self.deadf)][1],3108)
+                    else:
+                        if self.life > 0:
+                            self.livef = self.livef + 0.7    
+                            if self.livef <= 19:
+                                if self.dir < 0:
+                                    image(g.two,self.x-self.w//2-g.x,self.y-self.h//2,player_life[int(self.livef)][1]-player_life[int(self.livef)][0],48,player_life[int(self.livef)][1],3210,player_life[int(self.livef)][0],3250)                    
+                                elif self.dir > 0:
+                                    image(g.two,self.x-self.w//2-g.x,self.y-self.h//2,player_life[int(self.livef)][1]-player_life[int(self.livef)][0],48,player_life[int(self.livef)][0],3210,player_life[int(self.livef)][1],3250)
+                            else:
+                                self.life -= 1 
+                                self.dead = False
+                                self.livef=0
+                                self.deadf=0
+                        else:
+                            g.go = True
+                               
+    def update(self):
+        if self.vx != 0 or self.jump==True and not self.dead:
+            self.f = (self.f+0.3)%self.F
+        self.gravity()
+        if self.keyHandler[LEFT] == True and not self.dead:
+            self.vx = -6
+            self.dir = -1
+        elif self.keyHandler[RIGHT] == True and not self.dead:
+            self.vx = 6
+            self.dir = 1
+        else:
+            self.vx = 0
+            
+        if self.keyHandler[UP] == True and self.y+self.r == self.g and not self.dead:
+            self.vy = -13
+        
+        self.x += self.vx
+        self.y += self.vy
+        
+        for s in g.soldier:
+            if self.distance(s) < self.r + s.r and not s.dead and not self.dead:
+                self.dead = True
+        #Roll the screen
+        if self.x >= g.w/2:
+            g.x += self.vx
+        
+        for w in g.water:
+            if self.distance(w) < self.r + w.r:
+                g.water.remove(w)
+                del w
+                self.life += 1
+        
+    def distance (self,e):
+        return ((self.x-e.x)**2+(self.y-e.y)**2)**0.5
+
+class Soldier(Creature):
+    def __init__(self,x,y,r,g,img,w,h,F):
+        Creature.__init__(self,x,y,r,g,img,w,h,F)
+        self.dir = -1
+        self.ddir = self.dir
+        self.dead = False
+        self.deadF = 15
+        self.deadf = 0
+        self.cy = 92
+        self.wl = walk_list_s
+        
+    def display(self):
+        if not self.dead:
+            self.update()
+            if self.dir>0:
+                image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,self.wl[int(self.F-self.f-1)][1],self.h,self.wl[int(self.F-self.f-1)][1]+self.wl[int(self.F-self.f-1)][0],self.cy,self.wl[int(self.F-self.f-1)][0],self.cy+self.h)
+            elif self.dir<0:
+                image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,self.wl[int(self.f)][1],self.h,self.wl[int(self.f)][0],self.cy,self.wl[int(self.f)][0]+self.wl[int(self.f)][1],self.cy+self.h)         
+        else: 
+            self.gravity()
+            self.y += self.vy
+            self.deadimg()
+    
+    def update(self):
+        self.f = (self.f+0.4)%self.F
+        self.gravity()
+    
+    def deadimg(self):
+        self.deadf = self.deadf+0.3
+        if self.deadf <= 15:
+            if self.ddir > 0:
+                image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,soldier_death[int(self.deadf)][1]-soldier_death[int(self.deadf)][0],45,soldier_death[int(self.deadf)][1],1430,soldier_death[int(self.deadf)][0],1475)                    
+            elif self.ddir < 0:
+                image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,soldier_death[int(self.deadf)][1]-soldier_death[int(self.deadf)][0],45,soldier_death[int(self.deadf)][0],1430,soldier_death[int(self.deadf)][1],1475)
+        else:
+            g.soldier.remove(self)
+ 
+        
+class Soldier1(Soldier):
+    def __init__(self,x,y,r,g,img,w,h,F,x1,x2):
+        Soldier.__init__(self,x,y,r,g,img,w,h,F)
+        self.x1 = x1
+        self.x2 = x2
+        self.vx = -4
+        self.cy = 243
+        self.wl = walk_list1
+                
+    def update(self):
+        if self.vx != 0:
+            self.f = (self.f+0.5)%self.F    
+        self.gravity()
+        if self.x not in range(self.x1,self.x2):
+            self.vx = -self.vx
+            self.dir = -self.dir
+            self.ddir = -self.ddir
+        self.x += self.vx
+        self.y += self.vy
+    
+class Soldier2(Soldier):
+    def __init__(self,x,y,r,g,img,w,h,F):
+        Soldier.__init__(self,x,y,r,g,img,w,h,F)
+        self.dir = 1
+        self.ddir = -1
+        self.vx = -3
+        self.cy = 509
+        self.wl = walk_list2
+                
+    def update(self):
+        self.f = (self.f+0.4)%self.F
+        if self.f<7.7 and self.f>7.5:
+            g.ball.append(Ball(self.x+2,g.g-self.r,8,g.g-15,'soldier.png',16,16,8))
+        self.gravity()
+        self.y += self.vy
+
+class Soldier3(Soldier):
+    def __init__(self,x,y,r,g,img,w,h,F):
+        Soldier.__init__(self,x,y,r,g,img,w,h,F)
+        self.dir = 1
+        self.ddir = -1
+        self.vx = -3
+        self.cy = 677
+        self.wl = walk_list3
+        
+    def update(self):
+        self.f = (self.f+0.4)%self.F
+        if self.f<13.7 and self.f>13.5:
+            g.mine.append(Mine(self.x+2,self.y,9,g.g,'soldier.png',18,15,5))
+        self.gravity()
+        self.y +=self.vy
+       
+class Soldier4(Soldier1):
+    def __init__(self,x,y,r,g,img,w,h,F,x1,x2):
+        Soldier1.__init__(self,x,y,r,g,img,w,h,F,x1,x2)
+        self.vx = -4
+        self.vy = -10
+        self.cy = 0
+        self.wl = walk_list4
+    def update(self):
+        if self.vx != 0:
+            self.f = (self.f+0.5)%self.F    
+        self.gravity()
+        if self.x not in range(self.x1,self.x2):
+            self.vx = -self.vx
+            self.dir = -self.dir
+            self.ddir = -self.ddir
+        if self.y + self.r >= self.g:
+            self.vy = -6
+        self.x += self.vx
+        self.y += self.vy
+
+class Soldier5(Soldier):
+    def __init__(self,x,y,r,g,img,w,h,F):
+        Soldier.__init__(self,x,y,r,g,img,w,h,F)
+        self.cy = 0
+        self.wl = walk_list5
+
+class Soldier6(Soldier1):
+    def __init__(self,x,y,r,g,img,w,h,F,x1,x2):
+        Soldier1.__init__(self,x,y,r,g,img,w,h,F,x1,x2)
+        self.ddir = -self.dir
+        self.vx = -10
+        self.cy = 1963
+        self.wl = walk_list6
+
+class Soldier7(Soldier):
+    def __init__(self,x,y,r,g,img,w,h,F):
+        Soldier.__init__(self,x,y,r,g,img,w,h,F)
+        self.dir = 1
+        self.ddir = 1
+        self.cy = 90
+        self.wl = walk_list7
+
+class Soldier8(Soldier):
+    def __init__(self,x,y,r,g,img,w,h,F):
+        Soldier.__init__(self,x,y,r,g,img,w,h,F)
+        self.cy = 90
+        self.wl = walk_list8
+
+class Soldier9(Soldier):
+    def __init__(self,x,y,r,g,img,w,h,F):
+        Soldier.__init__(self,x,y,r,g,img,w,h,F)
+        self.cy = 90
+        self.wl = walk_list9        
+
+class Ball(Creature):
+    def __init__(self,x,y,r,g,img,w,h,F):
+        Creature.__init__(self,x,y,r,g,img,w,h,F)
+        self.vx = -5
+        self.ttl = 60
+        
+    def display(self):
+        self.ttl -= 1
+        if self.vx != 0:
+            self.f = (self.f+0.3)%self.F    
+        self.gravity()
+        self.x += self.vx
+        self.y += self.vy
+        image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,self.w,self.h,978+int(self.f)*self.w,873,978+int(self.f+1)*self.w,873+self.h)
+        
+        if self.distance(g.player) < self.r + g.player.r and g.player.dead == False:
+            g.player.dead = True
+            g.ball.remove(self)
+            del self  
+    
+    def distance (self,e):
+        return ((self.x-e.x)**2+(self.y-e.y)**2)**0.5
+
+class Mine(Creature):
+    def __init__(self,x,y,r,g,img,w,h,F):
+        Creature.__init__(self,x,y,r,g,img,w,h,F)
+        self.vx = -5
+        self.vy = -10
+    def display(self):
+        self.update()
+        image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,self.w,self.h,mine[int(self.f)][0],855,mine[int(self.f)][0]+mine[int(self.f)][1],855+self.h)
+        
+        if self.distance(g.player) < self.r + g.player.r and g.player.dead == False:
+            g.player.dead = True
+            image(g.one,self.x-self.r-g.x,self.y-self.r,self.w,self.h,336,310,384,407)
+            g.mine.remove(self)
+            del self 
+    
+    def update(self):
+        for i in platform[g.mission-1]:
+            if self.x in range(i[0],i[1]) and self.y+self.r <= i[2]:
+                self.g = i[2]
+                break
+            else:
+                self.g = g.g
+        if self.vx != 0:
+            self.f = (self.f+0.3)%self.F    
+        
+        self.vy += 0.4
+        self.x += self.vx
+        self.y += self.vy
+        
+    def distance (self,e):
+        return ((self.x-e.x)**2+(self.y-e.y)**2)**0.5 
+
+class Grenade(Mine):
+    def __init__(self,x,y,r,g,img,w,h,F,dir):
+        Mine.__init__(self,x,y,r,g,img,w,h,F)
+        self.dir = dir
+        self.vx = 5*self.dir
+        self.vy = -8
+    def display(self):
+        self.update()
+        image(self.img,self.x-self.w//2-g.x,self.y-self.h//2,self.w,self.h,grenade[int(self.f)][0],grenade[int(self.f)][1],grenade[int(self.f)][2],grenade[int(self.f)][3])
+        for e in g.soldier:
+            if self.distance(e) < self.r + e.r and e.dead == False:
+                e.dead = True
+                image(g.one,self.x-self.r*5-g.x,self.y-self.r*10,self.w*5,self.h*5,336,310,384,407)
+                g.grenade.remove(self)
+
+class Game:
+    def __init__(self,w,h,g,m):
+        self.w=w
+        self.h=h
+        self.g=g
+        self.x=0
+        self.mission=m
+        self.player=Player(50,50,16,self.g,'1.png',32,40,9,3)
+        self.soldier=[]
+        self.a=60
+        self.grenade=[]
+        self.mine=[]
+        self.ball=[]
+        self.water=[]
+        #distribution of enemies and objects in three missions respectively
+        if self.mission==1:
+            self.soldier.append(Soldier6(200,50,16,self.g,'soldier.png',35,43,8,100,300))
+            self.soldier.append(Soldier1(300,50,16,self.g,'soldier.png',35,48,12,200,300))
+            self.soldier.append(Soldier1(1000,170,16,self.g,'soldier.png',35,48,12,1586,1742))
+            for i in range(3):            
+                self.soldier.append(Soldier1(2800+i*100,50,16,self.g,'soldier.png',35,48,12,2900+100*i,3000+100*i))
+            self.soldier.append(Soldier2(3000,170,16,self.g,'soldier.png',35,43,10))
+            self.soldier.append(Soldier2(1418,170,16,self.g,'soldier.png',35,43,10))
+            self.soldier.append(Soldier3(950,170,16,self.g,'soldier.png',35,48,18))
+            self.soldier.append(Soldier3(2022,170,16,self.g,'soldier.png',35,48,18))
+            self.soldier.append(Soldier(1730,99,15,self.g,'soldier.png',35,38,5))
+            self.soldier.append(Soldier5(685,170,15,self.g,'soldier.png',35,43,4))
+            self.soldier.append(Soldier7(200,170,15,self.g,'soldier.png',35,39,4))
+            self.soldier.append(Soldier8(230,170,15,self.g,'soldier.png',35,40,4))
+            self.soldier.append(Soldier9(400,170,15,self.g,'soldier.png',35,40,4))
+            #self.soldier.append(Soldier4(250,170,16,self.g,'soldier.png',35,45,5,200,300))
+            self.water.append(Water(2360,135,15,self.g,'water.png',55,37,1)) 
+        
+        elif self.mission==2:
+            self.soldier.append(Soldier2(1343,50,16,self.g,'soldier.png',35,43,10))
+        
+        elif self.mission==3:
+            self.water.append(Water(1247,self.g,12,self.g,'water.png',55,37,1)) 
+        
+        self.one=loadImage(path+"/images/1.png")
+        self.two=loadImage(path+"/images/2.gif")
+        self.bg1=loadImage(path+"/images/bg1.png")
+        self.bg2=loadImage(path+"/images/bg2.png")
+        self.bg3=loadImage(path+"/images/bg3.png")
+        self.sky1=loadImage(path+"/images/sky.png")
+        self.goimg=loadImage(path+"/images/gameover.png")
+        self.go=False
+        self.win=False
+        
+    def display(self):
+        
+            
+        if self.mission==1:
+            #loop the sky
+            image(self.sky1,0,0,self.w-self.x+1,132,self.x-1,0,self.w,113)
+            image(self.sky1,self.w-self.x,0,self.x,132,0,0,self.x,113)     
+            #the background for mission1, there's a black gap in between and we should fix it with other obstacle image later.
+            image(self.bg1,0,70,self.w,120,9+self.x,580,self.w+self.x,671)
+            image(self.bg1,0,0,self.w,230,7+self.x,0,self.w+self.x,230)
+            self.player.display()
+            
+            for w in self.water:
+                w.display()
+            for s in self.soldier:
+                s .display()
+            for b in self.ball:
+                b.display()
+                if b.ttl <= 0:
+                    self.ball.remove(b)
+            for g in self.grenade:
+                g.display()
+                if g.y+g.r > g.g:
+                    self.grenade.remove(g)
+                    image(self.one,g.x-g.r*4-self.x,g.y-g.r*10,g.w*5,g.h*5,3,408,53,506)
+                    #image(self.one,self.gx-g.r*4-self.x,self.gy-g.r*10,g.w*5,g.h*5,3+int(self.a)*50,408,3+int(self.a+1)*50,506)
+                    
+            for m in self.mine:
+                m.display()
+                if m.y+m.r > m.g:
+                    image(self.one,m.x-m.r-self.x,m.y-m.r,m.w,m.h,336,310,384,407)
+                    self.mine.remove(m)
+            
+            if self.player.x>=3518:
+                fill(255,0,0)
+                textSize(60)
+                if self.a>0:
+                    text("MISSION1 COMPLETED!",215,130)       
+                    self.a -= 1     
+                else:
+                    self.__init__(1000,230,190,2)
+        elif self.mission==2:
+            image(self.bg2,0,0,self.w,self.h,self.x,0,self.w+self.x,220)   
+
+            
+            if self.player.x>=3463:
+                fill(255,0,0)
+                textSize(60)
+                if self.a>0:
+                    text("MISSION2 COMPLETED!",215,130)       
+                    self.a -= 1     
+                else:
+                    g.__init__(1000,230,170,3)
+                    
+            
+        
+        elif self.mission==3:
+            image(self.bg3,0,0,self.w,self.h,7+self.x,0,self.w+self.x,231)
+            
+            if self.player.x>=2540:
+                fill(255,0,0)
+                textSize(60)
+                if self.a>0:
+                    text("ALL MISSIONS COMPLETED!",140,130)       
+                    self.a -= 1     
+                else:
+                    self.win = True
+        
+        for f in self.player.fire:
+            f.display()
+            if f.ttl <= 0:
+                self.player.fire.remove(f)
+        image(loadImage(path+"/images/heart.png"),20,20,36,36,0,0,720,720)
+        fill(255)
+        textSize(25)
+        text('X '+str(self.player.life),60,45)
+            
+class Fire(Creature):
+    def __init__(self,x,y,r,g,img,w,h,F,vx,ttl):
+        Creature.__init__(self,x,y,r,g,img,w,h,F)
+        self.vx = vx
+        self.dir = vx
+        self.ttl = ttl*60
+        
+    def update(self):
+        self.ttl -= 1
+        self.x += self.vx
+        
+        for s in g.soldier:
+            if self.distance(s) < self.r + s.r and s.dead == False:
+                s.dead = True
+                g.player.fire.remove(self)
+                del self
+                return
+              
+    def distance (self,e):
+        return ((self.x-e.x)**2+(self.y-e.y)**2)**0.5
+
+class Water(Creature):
+    def __init__(self,x,y,r,g,img,w,h,F):
+        Creature.__init__(self,x,y,r,g,img,w,h,F)
+        
+    def display(self):
+        image(self.img,self.x-self.w//2-g.x,self.y-self.h//2-12,self.w//2,self.h//2,14,6,14+self.w,6+self.h)
+
+    def update(self):
+        pass
+        
+g = Game(1000,230,190,1)
+
+def setup():
+    size(g.w,g.h)
+    background(0)
+    
+def draw():
+    print 'X',g.player.x
+    print 'Y',g.player.y
+    background(0)
+    g.display()
+    if not g.go:
+        g.display()
+    else:
+        image(g.goimg,0,0,g.w,g.h) 
+        
+def keyPressed():
+    if keyCode == LEFT:
+        g.player.keyHandler[LEFT]=True
+    elif keyCode == RIGHT:
+        g.player.keyHandler[RIGHT]=True
+    elif keyCode == UP:
+        g.player.keyHandler[UP]=True
+    elif keyCode == DOWN:
+        g.player.keyHandler[DOWN]=True
+    elif keyCode == 32 and not g.player.dead:
+        g.player.fire.append(Fire(g.player.x+g.player.dir*g.player.r+8,g.player.y-8,12,g.player.g,"f.png",25,10,1,g.player.dir*20,0.2))
+        g.player.ofire = True
+    elif keyCode == 70 and not g.player.dead:
+        g.grenade.append(Grenade(g.player.x+g.player.dir*g.player.r+8,g.player.y-12,8,g.player.g,"1.png",20,20,8,g.player.dir))
+        g.player.grenade = True   
+    elif keyCode == 82:
+        g.player.rampage = True 
+def keyReleased():
+    if keyCode == LEFT:
+        g.player.keyHandler[LEFT]=False
+    elif keyCode == RIGHT:
+        g.player.keyHandler[RIGHT]=False
+    elif keyCode == UP:
+        g.player.keyHandler[UP]=False
+    elif keyCode == DOWN:
+        g.player.keyHandler[DOWN]=False 
+    elif keyCode == 32:
+        g.player.ofire = False
+    elif keyCode == 70:
+        g.player.grenade = False
